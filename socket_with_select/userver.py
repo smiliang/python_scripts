@@ -2,18 +2,20 @@ import socket
 import select
 import sys
 import os
+import multiprocessing
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.setblocking(False)
 sock.bind(('127.0.0.1', 8001))
 
-inputs = [sock, sys.stdin]
-outputs = [sock,]
 writeCache = []
 
 #----------------------------------------------------------------------
-def selectMode():
+def selectMode(server = sock):
     print('select Mode')
+    inputs = [server,]
+    outputs = [server,]
+    sendCache = []
     running = True
     while running:
         try:
@@ -28,23 +30,23 @@ def selectMode():
                 inputs.clear()
                 outputs.clear()
                 break
-            elif read == sock:
+            elif read == server:
                 try:
-                    data, addr = sock.recvfrom(1024)
+                    data, addr = server.recvfrom(1024)
                     print(f'receive {data} from {addr} pid {os.getpid()}')
-                    writeCache.append(addr)
-                    writeCache.append(data)                    
+                    sendCache.append(addr)
+                    sendCache.append(data)                    
                 except (OSError, IOError) as e:
                     print(f'no gained, pid {os.getpid()} err {e}')
             else:
                 print(f'unkown read {read}')
         for write in writeable:
-            if write == sock:
-                if writeCache:
-                    sock.sendto(writeCache.pop(), writeCache.pop())
+            if write == server:
+                if sendCache:
+                    server.sendto(sendCache.pop(), sendCache.pop())
             else:
                 print(f'unkown write {write}')
-    sock.close()
+    server.close()
     
 #----------------------------------------------------------------------
 def pollMode():
@@ -126,6 +128,8 @@ if __name__ == '__main__':
     #selectMode()
     #pollMode()
     #kqueueMode()
+    
+    '''
     childs = []
     isc = False
     for i in range(3):
@@ -142,4 +146,15 @@ if __name__ == '__main__':
     if not isc:
         print(f'childs {childs}')
         for pid in childs:
-            os.waitpid(pid, 0)    
+            os.waitpid(pid, 0)
+    '''
+    
+    p1 = multiprocessing.Process(target = selectMode, args = (sock,))
+    p2 = multiprocessing.Process(target = selectMode, args = (sock,))
+    p3 = multiprocessing.Process(target = selectMode, args = (sock,))
+    p1.start()
+    p2.start()
+    p3.start()
+    p1.join()
+    p2.join()
+    p3.join()

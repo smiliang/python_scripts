@@ -10,6 +10,7 @@ import sys
 import os
 import traceback
 import errno
+import multiprocessing
 
 HOST = '127.0.0.1'
 PORT = 8001
@@ -23,13 +24,14 @@ server.bind((HOST, PORT))
 server.listen(5)
 
 #创建输入监听列表
-inputs = [server, sys.stdin]
-outputs = [server]
 writeCache = []
 
 #select模式
-def select_mode():
+def select_mode(sserver = server):
    print('select mode')
+   inputs = [sserver]
+   outputs = [sserver]   
+   sendCache = []
    running = True
    while running:
       try:
@@ -40,9 +42,9 @@ def select_mode():
 
       for each in readable:
          #如果是server，则accept创建链接，并将链接的描述符放入到inputs进行select监听
-         if each == server:
+         if each == sserver:
             try:
-               conn, addr = server.accept()
+               conn, addr = sserver.accept()
                inputs.append(conn)
                outputs.append(conn)
                print(f'incoming connect from {addr} accpet by {os.getpid()}')               
@@ -66,7 +68,7 @@ def select_mode():
                      outputs.remove(each)
                      each.close()
                      break
-                  writeCache.append((data, each))
+                  sendCache.append((data, each))
                else:
                   inputs.remove(each)
                   outputs.remove(each)
@@ -75,12 +77,12 @@ def select_mode():
                inputs.remove(each)
                outputs.remove(each)
       for write in writeable:
-         for data,each in writeCache:
+         for data,each in sendCache:
             if write == each:
                write.send(data)
-               writeCache.remove((data,each))
+               sendCache.remove((data,each))
 
-   server.close()
+   sserver.close()
 
 #epoll模式
 def epoll_mode():
@@ -211,6 +213,8 @@ if __name__ == "__main__":
    #epoll_mode()
    #kqueue_mode()
    #poll_mode()
+   
+   '''
    childs = []
    isc = False
    for i in range(3):
@@ -228,3 +232,11 @@ if __name__ == "__main__":
       print(f'childs {childs}')
       for pid in childs:
          os.waitpid(pid, 0)
+   '''
+   
+   p1 = multiprocessing.Process(target = select_mode, args = (server,))
+   p2 = multiprocessing.Process(target = select_mode, args = (server,))
+   p1.start()
+   p2.start()
+   p1.join()
+   p2.join()
