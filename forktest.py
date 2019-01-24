@@ -5,10 +5,12 @@ import os
 import time
 import random
 
-server = []
+list = []
 a = random.randint(0,10000)
 print(f'random {a}')
-server.append(a)
+list.append(a)
+print(f'list addr : {hex(id(list))}')
+print(f'a addr ; {hex(id(a))}')
 
 if True:
     child = []
@@ -21,6 +23,8 @@ if True:
             # We are in the child process.
             print(f"{os.getpid()} (child) just was created by {os.getppid()}. i {i}")
             isc = True
+            print(f'list addr : {hex(id(list))}')
+            print(f'a addr ; {hex(id(a))}')            
             break
         else:
             # We are in the parent process.
@@ -28,7 +32,9 @@ if True:
             child.append(pid)
     if not isc:
         print(f"after childs {child}")
-        print(f'servers {server}')
+        print(f'servers {list}')
+        print(f'list addr : {hex(id(list))}')
+        print(f'a addr ; {hex(id(a))}')        
         for c in child:
             p,s = os.waitpid(c, 0)
             print(f'{p} status : {s}')
