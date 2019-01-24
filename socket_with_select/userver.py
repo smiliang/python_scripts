@@ -1,6 +1,7 @@
 import socket
 import select
 import sys
+import os
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.setblocking(False)
@@ -28,10 +29,13 @@ def selectMode():
                 outputs.clear()
                 break
             elif read == sock:
-                data, addr = sock.recvfrom(1024)
-                print(f'receive {data} from {addr}')
-                writeCache.append(addr)
-                writeCache.append(data)
+                try:
+                    data, addr = sock.recvfrom(1024)
+                    print(f'receive {data} from {addr} pid {os.getpid()}')
+                    writeCache.append(addr)
+                    writeCache.append(data)                    
+                except (OSError, IOError) as e:
+                    print(f'no gained, pid {os.getpid()} err {e}')
             else:
                 print(f'unkown read {read}')
         for write in writeable:
@@ -119,6 +123,23 @@ def kqueueMode():
     sock.close()
 
 if __name__ == '__main__':
-    selectMode()
+    #selectMode()
     #pollMode()
     #kqueueMode()
+    childs = []
+    isc = False
+    for i in range(3):
+        pid = os.fork()
+        if 0 == pid:
+            selectMode()
+            print(f"{os.getpid()} (child) just was created by {os.getppid()}. i {i}")
+            isc = True
+            break
+        else:
+            print(f"{os.getpid()} (parent) just created {pid}. i {i}")
+            childs.append(pid)
+
+    if not isc:
+        print(f'childs {childs}')
+        for pid in childs:
+            os.waitpid(pid, 0)    

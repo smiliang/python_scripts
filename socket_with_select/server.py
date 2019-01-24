@@ -7,7 +7,9 @@ __author__ = 'chenglp'
 import socket
 import select
 import sys
-
+import os
+import traceback
+import errno
 
 HOST = '127.0.0.1'
 PORT = 8001
@@ -39,9 +41,13 @@ def select_mode():
       for each in readable:
          #如果是server，则accept创建链接，并将链接的描述符放入到inputs进行select监听
          if each == server:
-            conn, addr = server.accept()
-            inputs.append(conn)
-            outputs.append(conn)
+            try:
+               conn, addr = server.accept()
+               inputs.append(conn)
+               outputs.append(conn)
+               print(f'incoming connect from {addr} accpet by {os.getpid()}')               
+            except (OSError, IOError) as e:
+               print(f'incoming connect,no gained. err:{e} by {os.getpid()}')            
          #如果是系统输入，则获取系统输入，停止程序
          elif each == sys.stdin:
             junk = sys.stdin.readline()
@@ -53,7 +59,7 @@ def select_mode():
          else:
             try:
                data = each.recv(BUFFER_SIZE)
-               print(f'receive from {each} data {data}')
+               print(f'receive from {each} data {data} pid {os.getpid()}')
                if data:
                   if data == b'\n':
                      inputs.remove(each)
@@ -204,4 +210,21 @@ if __name__ == "__main__":
    #select_mode()
    #epoll_mode()
    #kqueue_mode()
-   poll_mode()
+   #poll_mode()
+   childs = []
+   isc = False
+   for i in range(3):
+      pid = os.fork()
+      if 0 == pid:
+         select_mode()
+         print(f"{os.getpid()} (child) just was created by {os.getppid()}. i {i}")
+         isc = True
+         break
+      else:
+         print(f"{os.getpid()} (parent) just created {pid}. i {i}")
+         childs.append(pid)
+      
+   if not isc:
+      print(f'childs {childs}')
+      for pid in childs:
+         os.waitpid(pid, 0)
