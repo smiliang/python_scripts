@@ -19,8 +19,9 @@ def directtest():
     print(f'father value {test}')
 
 #----------------------------------------------------------------------
-def writepipe(p):
+def writepipe(p, f):
     receiveCache = []
+    f.close()
     running = True
     while running:
         readable, writeable, exeptions = select.select([p],[p],[])
@@ -33,11 +34,13 @@ def writepipe(p):
         for wr in writeable:
             if receiveCache:
                 wr.send(receiveCache.pop())
+    p.close()
 
 def pipetest():
     parent_conn, child_conn = multiprocessing.Pipe()
-    p = multiprocessing.Process(target=writepipe, args=(child_conn,))
+    p = multiprocessing.Process(target=writepipe, args=(child_conn, parent_conn))
     p.start()
+    child_conn.close()
     running = True
     sendCache = []
     while running:
@@ -55,6 +58,7 @@ def pipetest():
         for wr in writeable:
             if sendCache:
                 wr.send(sendCache.pop())
+    parent_conn.close()
 
 #----------------------------------------------------------------------
 def writequeue(q):
@@ -98,5 +102,5 @@ def queuetest():
 
 if __name__ == "__main__":
     #directtest()
-    #pipetest()
-    queuetest()
+    pipetest()
+    #queuetest()
